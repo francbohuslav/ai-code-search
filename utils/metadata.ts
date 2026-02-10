@@ -22,9 +22,7 @@ function getMetadataPath(sourcesDir?: string): string {
  * Loads metadata.json if it exists, otherwise returns empty metadata object.
  * If reading fails, returns empty metadata (treats as "no record").
  */
-export async function loadMetadata(
-	sourcesDir?: string,
-): Promise<MetadataFile> {
+export async function loadMetadata(sourcesDir?: string): Promise<MetadataFile> {
 	const metadataPath = getMetadataPath(sourcesDir);
 	try {
 		const content = await fs.readFile(metadataPath, "utf8");

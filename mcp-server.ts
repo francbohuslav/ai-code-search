@@ -7,7 +7,7 @@ import {
 import { z } from "zod";
 import dotenv from "dotenv";
 import path from "node:path";
-import { getCodebaseMap, toCloneUrl } from "./utils/codebase-list";
+import { getCodebaseMap } from "./utils/codebase-list";
 import { runCursorAgentStream } from "./utils/cursor-agent";
 import {
 	cloneRepository,
@@ -16,10 +16,7 @@ import {
 	pullRepository,
 } from "./utils/projects";
 import { parseStreamEvent } from "./utils/stream-parser";
-import {
-	needsPull,
-	updateLastPullDate,
-} from "./utils/metadata";
+import { needsPull, updateLastPullDate } from "./utils/metadata";
 
 // Load .env if present - ensure we load from the project root directory
 // When running via npm script, process.cwd() should be correct, but we'll use explicit path resolution
@@ -53,8 +50,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
 		tools: [
 			{
 				name: "question",
-				description:
-					"Ask a question about a specific library",
+				description: "Ask a question about a specific library",
 				inputSchema: {
 					type: "object",
 					properties: {
@@ -72,8 +68,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
 			},
 			{
 				name: "list_libraries",
-				description:
-					"List all available libraries",
+				description: "List all available libraries",
 				inputSchema: {
 					type: "object",
 					properties: {},
@@ -97,9 +92,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 		}
 
 		// Get progress token if available for streaming updates
-		const progressToken =
-			(request.params as { _meta?: { progressToken?: string } })._meta
-				?.progressToken;
+		const progressToken = (
+			request.params as { _meta?: { progressToken?: string } }
+		)._meta?.progressToken;
 
 		// Helper to send progress notification
 		const sendProgress = async (
@@ -139,7 +134,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 					`Library "${library}" not found. Use list_libraries to see available libraries.`,
 				);
 			}
-			cloneUrl = toCloneUrl(url);
+			cloneUrl = url;
 		}
 
 		// Clone if needed
@@ -164,11 +159,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 		const shouldPull = await needsPull(library);
 		if (shouldPull) {
 			try {
-				await sendProgress(
-					needClone ? 35 : 10,
-					100,
-					"Updating repository…",
-				);
+				await sendProgress(needClone ? 35 : 10, 100, "Updating repository…");
 				console.log(`[mcp] pulling ${library}`);
 				await pullRepository(library);
 				await updateLastPullDate(library);
@@ -322,8 +313,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 				isError: false,
 			};
 		} catch (e) {
-			const msg =
-				e instanceof Error ? e.message : "Failed to list libraries";
+			const msg = e instanceof Error ? e.message : "Failed to list libraries";
 			throw new Error(msg);
 		}
 	}

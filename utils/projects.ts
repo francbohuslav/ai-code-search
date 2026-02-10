@@ -59,7 +59,6 @@ export function getProjectPath(
 	return path.join(dir, projectName);
 }
 
-
 /**
  * Clones a repository into SOURCES_DIR. The created folder name is the last segment of the URL.
  */
@@ -130,4 +129,3 @@ export async function pullRepository(
 		throw error;
 	}
 }
-

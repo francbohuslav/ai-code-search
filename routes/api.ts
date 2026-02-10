@@ -1,7 +1,7 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import express, { Router } from "express";
-import { getCodebaseMap, toCloneUrl } from "../utils/codebase-list";
+import { getCodebaseMap } from "../utils/codebase-list";
 import { runCursorAgentStream } from "../utils/cursor-agent";
 import {
 	cloneRepository,
@@ -9,10 +9,7 @@ import {
 	getProjects,
 	pullRepository,
 } from "../utils/projects";
-import {
-	needsPull,
-	updateLastPullDate,
-} from "../utils/metadata";
+import { needsPull, updateLastPullDate } from "../utils/metadata";
 
 export const apiRouter = Router();
 
@@ -64,7 +61,7 @@ apiRouter.post("/search", async (req, res) => {
 			});
 			return;
 		}
-		cloneUrl = toCloneUrl(url);
+		cloneUrl = url;
 	}
 
 	try {

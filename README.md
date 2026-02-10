@@ -1,140 +1,119 @@
 # Code Search using cursor-agent
 
-Web application for running **cursor-agent** on selected projects through a browser. Backend is in Node.js (TypeScript), frontend in React with Material UI. The application also provides an **MCP (Model Context Protocol) server** for integration with MCP clients (e.g., Cursor, Claude Desktop).
+Run **cursor-agent** on selected codebases in two ways:
+
+1. **MCP server** – use from Cursor, Claude Desktop or other MCP clients (tools: query a library, list libraries).
+2. **Standalone application with GUI** – web UI in the browser; you choose a project and enter a prompt.
+
+Backend is Node.js (TypeScript), frontend is React with Material UI.
 
 ## Requirements
 
-- [Node.js](https://nodejs.org/) and npm (for both backend and frontend)
+- [Node.js](https://nodejs.org/) and npm
 - **cursor-agent** installed in PATH
-- Directory with source projects (each project = one subdirectory)
+- **SOURCES_DIR** – directory where cloned projects live (one subdirectory per project)
+- **CODEBASE_LIST_PATH** – path to a JSON file with the list of available codebase URLs (for MCP and for the GUI project list when using a codebase list)
 
-## Configuration
+---
 
-### Environment variables
+## 1. MCP server
 
-You can configure the application either via a local `.env` file (convenient for local HTTP server)
-or via environment variables provided by your MCP client / IDE (recommended for pure MCP usage).
+Use ai-code-search as an MCP server so that your IDE or Claude can call **question** (query a library) and **list_libraries** (list available libraries). The server runs as a separate process and communicates via stdio.
 
-1. Copy `.env.example` to `.env` (for local server):
-   ```bash
-   cp .env.example .env
-   ```
-2. In `.env` **or** in your IDE / MCP configuration, set:
-   - **SOURCES_DIR** – absolute path to the directory where you have projects (subdirectories).
-   - **PORT** (optional) – server port, default is 8000 (used only by the HTTP server).
-   - **CURSOR_AGENT_CMD** (optional) – command to run cursor-agent, default is "cursor-agent". Use if you have cursor-agent installed under a different name or path.
+### What you need to do
 
-Example `.env`:
+1. **Install cursor-agent** and ensure it is in your PATH (or set `CURSOR_AGENT_CMD`).
+2. **Configure your MCP client** with the path to this server and the required environment variables.
 
-```env
-SOURCES_DIR=C:\Projekty\sources
-PORT=8000
-# CURSOR_AGENT_CMD=cursor-agent
+### MCP client configuration
+
+Add the server to your MCP config. Use **SOURCES_DIR** (where clones are stored) and **CODEBASE_LIST_PATH** (path to `codebase-list.json` or your own list file).
+
+**Example – Cursor (`~/.cursor/mcp.json` or equivalent):**
+
+```json
+{
+  "mcpServers": {
+    "ai-code-search": {
+      "command": "npx",
+      "args": ["github:francbohuslav/ai-code-search"],
+      "env": {
+        "SOURCES_DIR": "c:\\...\\repos",
+        "CODEBASE_LIST_PATH": "c:\\...\\codebase-list.json"
+      }
+    }
+  }
+}
 ```
 
-## Running
+**Example – Claude Desktop** (use the same structure in your Claude MCP config file, e.g. `~/Library/Application Support/Claude/claude_desktop_config.json` on macOS).
 
-### Run with npx (from GitHub)
+Optional env var: **CURSOR_AGENT_CMD** – command to run cursor-agent (default `"cursor-agent"`).
 
-You can run the web server without cloning the repo:
+### MCP tools
+
+- **`question`** – Parameters: `library` (string), `prompt` (string). Runs cursor-agent on the given library; clones it first if not in `SOURCES_DIR`. Supports progress notifications.
+- **`list_libraries`** – Returns all libraries from the codebase list with `{ name, downloaded, url? }[]`.
+
+---
+
+## 2. Standalone application with GUI
+
+Run the web server and open the UI in a browser. You select a project (from `SOURCES_DIR` and/or the codebase list) and enter a prompt; the backend runs cursor-agent and streams the result.
+
+### What you need to do
+
+1. **Set environment variables** (e.g. in `.env` in the project root):
+   - **SOURCES_DIR** – absolute path to the directory with project subdirectories (required).
+   - **CODEBASE_LIST_PATH** – absolute path to your codebase list JSON file (required if you want the dropdown to show codebases from the list).
+   - **PORT** (optional) – HTTP server port, default 8000.
+   - **CURSOR_AGENT_CMD** (optional) – command for cursor-agent, default `"cursor-agent"`.
+
+2. **Install and build:**
+   - Copy `.env.example` to `.env` and fill in the paths.
+   - Install backend and frontend, then build the frontend.
+
+3. **Start the server** and open the app in the browser.
+
+### Quick start (clone and run locally)
+
+```bash
+# 1. Clone repo, then in repo root:
+cp .env.example .env
+# Edit .env: set SOURCES_DIR and CODEBASE_LIST_PATH
+
+# 2. Install
+npm install
+cd frontend && npm install && cd ..
+
+# 3. Build frontend
+cd frontend && npm run build && cd ..
+
+# 4. Start server
+npm run dev
+```
+
+Server runs at `http://localhost:8000` (or the port from `.env`).
+
+### Run with npx (no clone)
 
 ```bash
 npx github:francbohuslav/ai-code-search
 ```
 
-This installs the package and starts the server (default port 8000). Set `SOURCES_DIR` and optionally `CODEBASE_LIST_PATH` in your environment. For the web UI, build the frontend once: from the installed package directory run `cd frontend && npm install && npm run build`. Or clone the repo and follow the steps below.
+Set **SOURCES_DIR** and **CODEBASE_LIST_PATH** in your environment. The GUI will work only if the frontend is built (in the npx cache you can run `cd frontend && npm install && npm run build` from the installed package directory, or clone the repo and use the steps above).
 
-### 1. Install dependencies (clone and run locally)
+### Usage (GUI)
 
-```bash
-# Backend (in repository root)
-npm install
+1. Open `http://localhost:8000` in a browser.
+2. Select a **project** from the dropdown (from `SOURCES_DIR` / codebase list).
+3. Enter your **prompt** and click **Submit**.
 
-# Frontend
-cd frontend
-npm install
-cd ..
-```
-
-### 2. Build frontend
-
-```bash
-cd frontend
-npm run build
-cd ..
-```
-
-### 3. Start server
-
-```bash
-npm run dev
-```
-
-For production:
-
-```bash
-npm run build
-npm run start
-```
-
-Server will run on `http://localhost:8000` (or on the port from `.env`).
-
-### 4. Start MCP server
-
-MCP server runs as a separate process and communicates via stdio:
-
-```bash
-npm run mcp
-```
-
-MCP server provides the following tools:
-- **`question`** – query a specific library (automatically clones if not downloaded)
-- **`list_libraries`** – list all available libraries (both downloaded and not downloaded)
-
-#### MCP client configuration
-
-**For Cursor:**
-Add to `~/.cursor/mcp.json` (or equivalent configuration file). Here we also show how to pass
-environment variables directly from Cursor, so you don't need a `.env` file for the MCP server:
-
-```json
-{
-  "mcpServers": {
-    "ai-code-search": {
-      "command": "npm",
-      "args": ["run", "mcp"],
-      "cwd": "/path/to/project/source",
-      "env": {
-        "SOURCES_DIR": "/absolute/path/to/sources",
-        "CURSOR_AGENT_CMD": "cursor-agent"
-      }
-    }
-  }
-}
-```
-
-**For Claude Desktop:**
-Add to `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) or equivalent file:
-
-```json
-{
-  "mcpServers": {
-    "ai-code-search": {
-      "command": "npm",
-      "args": ["run", "mcp"],
-      "cwd": "/path/to/project/source",
-      "env": {
-        "SOURCES_DIR": "/absolute/path/to/sources",
-        "CURSOR_AGENT_CMD": "cursor-agent"
-      }
-    }
-  }
-}
-```
+The backend runs cursor-agent in the selected project directory and streams the result to the page.
 
 ### Frontend development (optional)
 
-For React application development with HMR, run backend in one terminal and Vite in another:
+Run backend and Vite separately for HMR:
 
 ```bash
 # Terminal 1 – backend
@@ -142,46 +121,35 @@ npm run dev
 ```
 
 ```bash
-# Terminal 2 – frontend (proxy on /api points to localhost:8000)
-cd frontend
-npm run dev
+# Terminal 2 – frontend
+cd frontend && npm run dev
 ```
 
-Frontend then runs on `http://localhost:5173` and API calls go to backend.
+Frontend at `http://localhost:5173`; API calls go to the backend.
 
-## Usage
+---
 
-1. Open the server address in a browser (e.g., `http://localhost:8000`).
-2. Enter your query for cursor-agent in the **Prompt** field.
-3. Select a project from the **Project** dropdown (loaded from `SOURCES_DIR`).
-4. Click **Submit**.
+## Environment variables summary
 
-Backend will run in the selected project directory:
+| Variable | Required | Used by | Description |
+|---------|----------|---------|-------------|
+| **SOURCES_DIR** | yes | both | Directory for cloned projects (one subfolder per project). |
+| **CODEBASE_LIST_PATH** | yes* | both | Path to JSON file: array of codebase URLs. *Required for MCP and for codebase list in GUI. |
+| **PORT** | no | GUI only | HTTP server port (default 8000). |
+| **CURSOR_AGENT_CMD** | no | both | Command to run cursor-agent (default `"cursor-agent"`). |
 
-```bash
-cursor-agent -p --mode ask agent "{your prompt}"
-```
-
-Result (stdout, stderr, and exit code) will be displayed on the page.
+---
 
 ## Project structure
 
-- **server.ts** – Node.js server, loading `.env`, API and serving frontend from `frontend/dist`
-- **mcp-server.ts** – MCP server for integration with MCP clients
-- **routes/api.ts** – endpoints `GET /api/projects` and `POST /api/search`
-- **utils/projects.ts** – reading project list from `SOURCES_DIR`
-- **utils/cursor-agent.ts** – running cursor-agent in a given project
-- **utils/stream-parser.ts** – parsing stream-json output from cursor-agent
-- **frontend/** – React + Material UI application (Vite), builds to `frontend/dist`
+- **server.ts** – HTTP server, loads `.env`, serves API and frontend from `frontend/dist`
+- **mcp-server.ts** – MCP server (stdio)
+- **cli.js** – Entry point for `npx` / bin
+- **routes/api.ts** – `GET /api/projects`, `POST /api/search`
+- **utils/** – projects, codebase-list, cursor-agent, stream-parser, metadata
+- **frontend/** – React + Material UI (Vite), build output in `frontend/dist`
 
-## API
+## API (GUI backend)
 
-### REST API (for web interface)
-
-- **GET /api/projects** – returns `{ projects: string[] }` (subdirectory names in `SOURCES_DIR`).
-- **POST /api/search** – body `{ project: string, prompt: string }`, returns streamed result from cursor-agent.
-
-### MCP Tools
-
-- **`question`** – Parameters: `library` (string), `prompt` (string). Queries a specific library using cursor-agent. Automatically clones the library if not downloaded. Supports progress notifications during processing.
-- **`list_libraries`** – Returns a list of all available libraries in JSON array format with objects `{ name: string, downloaded: boolean, url?: string }[]`.
+- **GET /api/projects** – `{ projects: string[], localProjects: string[] }`
+- **POST /api/search** – body `{ project: string, prompt: string }`, returns NDJSON stream from cursor-agent
