@@ -34,7 +34,17 @@ PORT=8000
 
 ## Running
 
-### 1. Install dependencies
+### Run with npx (from GitHub)
+
+You can run the web server without cloning the repo:
+
+```bash
+npx github:francbohuslav/ai-code-search
+```
+
+This installs the package and starts the server (default port 8000). Set `SOURCES_DIR` and optionally `CODEBASE_LIST_PATH` in your environment. For the web UI, build the frontend once: from the installed package directory run `cd frontend && npm install && npm run build`. Or clone the repo and follow the steps below.
+
+### 1. Install dependencies (clone and run locally)
 
 ```bash
 # Backend (in repository root)
