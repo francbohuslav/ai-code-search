@@ -1,0 +1,14 @@
+{
+	"formatter": {
+		"enabled": true
+	},
+	"linter": {
+		"enabled": true,
+		"rules": {
+			"recommended": true
+		}
+	},
+	"files": {
+		"ignore": ["node_modules", "frontend/node_modules", "dist", "frontend/dist"]
+	}
+}

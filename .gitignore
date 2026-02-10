@@ -1,0 +1,6 @@
+node_modules
+/frontend/dist
+/.env
+codebase-list.json
+/run-mcp.cmd
+/run.cmd
