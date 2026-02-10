@@ -5,9 +5,9 @@ const { spawnSync } = require("child_process");
 const path = require("path");
 
 const dir = __dirname;
-const serverPath = path.join(dir, "server.ts");
+const serverPath = path.join(dir, "mcp-server.ts");
 
-// Use locally installed tsx to run server.ts
+// Use locally installed tsx to run mcp-server.ts
 const result = spawnSync(
 	"npx",
 	["tsx", serverPath],
