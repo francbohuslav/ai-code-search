@@ -10,7 +10,11 @@ Backend is Node.js (TypeScript), frontend is React with Material UI.
 ## Requirements
 
 - [Node.js](https://nodejs.org/) and npm
-- [Cursor CLI](https://cursor.com/cli) **cursor-agent** installed in PATH
+- [Cursor CLI](https://cursor.com/cli) **cursor-agent** installed in PATH \
+  Helpful commands (Windows PowerShell):
+  - ```irm 'https://cursor.com/install?win32=true' | iex```
+  - ```winget install BurntSushi.ripgrep.MSVC```
+  - ```cursor-agent --version``` - everything is OK if version is printed
 - **SOURCES_DIR** – directory where cloned projects live (one subdirectory per project)
 - optional **CODEBASE_LIST_PATH** – path to a JSON file with the list of available codebase URLs
 
