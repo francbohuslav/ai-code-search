@@ -3,7 +3,10 @@ import path from "node:path";
 import { getSourcesDir } from "../config";
 
 interface LibraryMetadata {
-	lastPull: string; // ISO 8601 date string
+	/** ISO 8601 date string */
+	lastPull?: string;
+	/** If true, git pull operations are disabled for this library */
+	disableGit?: boolean;
 }
 
 interface MetadataFile {
@@ -92,26 +95,47 @@ export async function getLastPullDate(
 
 /**
  * Updates the last pull date for a library to the current time.
+ * Preserves existing metadata (e.g. disableGit) if present.
  */
 export async function updateLastPullDate(
 	libraryName: string,
 	sourcesDir?: string,
 ): Promise<void> {
 	const metadata = await loadMetadata(sourcesDir);
+	const existingMeta = metadata.libraries[libraryName] ?? {};
 	metadata.libraries[libraryName] = {
+		...existingMeta,
 		lastPull: new Date().toISOString(),
 	};
 	await saveMetadata(metadata, sourcesDir);
 }
 
 /**
+ * Returns true if git is disabled for this library.
+ */
+export async function isGitDisabled(
+	libraryName: string,
+	sourcesDir?: string,
+): Promise<boolean> {
+	const metadata = await loadMetadata(sourcesDir);
+	const libraryMeta = metadata.libraries[libraryName];
+	return libraryMeta?.disableGit === true;
+}
+
+/**
  * Returns true if the library needs a pull (no record or last pull was yesterday or earlier).
  * Compares only the date part (ignores time) - if lastPull is before today's start, returns true.
+ * Returns false if git is disabled for this library (disableGit: true).
  */
 export async function needsPull(
 	libraryName: string,
 	sourcesDir?: string,
 ): Promise<boolean> {
+	// If git is disabled, never pull
+	if (await isGitDisabled(libraryName, sourcesDir)) {
+		return false;
+	}
+
 	const lastPullDate = await getLastPullDate(libraryName, sourcesDir);
 	if (!lastPullDate) {
 		// No record - needs pull

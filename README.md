@@ -138,18 +138,3 @@ Frontend at `http://localhost:5173`; API calls go to the backend.
 | **PORT** | no | GUI only | HTTP server port (default 8000). |
 | **CURSOR_AGENT_CMD** | no | both | Command to run cursor-agent (default `"cursor-agent"`). |
 
----
-
-## Project structure
-
-- **server.ts** – HTTP server, loads `.env`, serves API and frontend from `frontend/dist`
-- **mcp-server.ts** – MCP server (stdio)
-- **cli.js** – Entry point for `npx` / bin
-- **routes/api.ts** – `GET /api/projects`, `POST /api/search`
-- **utils/** – projects, codebase-list, cursor-agent, stream-parser, metadata
-- **frontend/** – React + Material UI (Vite), build output in `frontend/dist`
-
-## API (GUI backend)
-
-- **GET /api/projects** – `{ projects: string[], localProjects: string[] }`
-- **POST /api/search** – body `{ project: string, prompt: string }`, returns NDJSON stream from cursor-agent
