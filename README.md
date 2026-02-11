@@ -10,11 +10,9 @@ Backend is Node.js (TypeScript), frontend is React with Material UI.
 ## Requirements
 
 - [Node.js](https://nodejs.org/) and npm
-- **cursor-agent** installed in PATH
+- [Cursor CLI](https://cursor.com/cli) **cursor-agent** installed in PATH
 - **SOURCES_DIR** – directory where cloned projects live (one subdirectory per project)
-- **CODEBASE_LIST_PATH** – path to a JSON file with the list of available codebase URLs (for MCP and for the GUI project list when using a codebase list)
-
----
+- optional **CODEBASE_LIST_PATH** – path to a JSON file with the list of available codebase URLs
 
 ## 1. MCP server
 
@@ -36,7 +34,7 @@ Add the server to your MCP config. Use **SOURCES_DIR** (where clones are stored)
   "mcpServers": {
     "ai-code-search": {
       "command": "npx",
-      "args": ["github:francbohuslav/ai-code-search"],
+      "args": ["-y", "github:francbohuslav/ai-code-search"],
       "env": {
         "SOURCES_DIR": "c:\\...\\repos",
         "CODEBASE_LIST_PATH": "c:\\...\\codebase-list.json"
@@ -55,8 +53,6 @@ Optional env var: **CURSOR_AGENT_CMD** – command to run cursor-agent (default 
 - **`question`** – Parameters: `library` (string), `prompt` (string). Runs cursor-agent on the given library; clones it first if not in `SOURCES_DIR`. Supports progress notifications.
 - **`list_libraries`** – Returns all libraries from the codebase list with `{ name, downloaded, url? }[]`.
 
----
-
 ## 2. Standalone application with GUI
 
 Run the web server and open the UI in a browser. You select a project (from `SOURCES_DIR` and/or the codebase list) and enter a prompt; the backend runs cursor-agent and streams the result.
@@ -64,12 +60,14 @@ Run the web server and open the UI in a browser. You select a project (from `SOU
 ### What you need to do
 
 1. **Set environment variables** (e.g. in `.env` in the project root):
+
    - **SOURCES_DIR** – absolute path to the directory with project subdirectories (required).
    - **CODEBASE_LIST_PATH** – absolute path to your codebase list JSON file (required if you want the dropdown to show codebases from the list).
    - **PORT** (optional) – HTTP server port, default 8000.
    - **CURSOR_AGENT_CMD** (optional) – command for cursor-agent, default `"cursor-agent"`.
 
 2. **Install and build:**
+
    - Copy `.env.example` to `.env` and fill in the paths.
    - Install backend and frontend, then build the frontend.
 
@@ -82,14 +80,11 @@ Run the web server and open the UI in a browser. You select a project (from `SOU
 cp .env.example .env
 # Edit .env: set SOURCES_DIR and CODEBASE_LIST_PATH
 
-# 2. Install
+# 2. Install and build frontend
 npm install
-cd frontend && npm install && cd ..
+cd frontend && npm install && npm run build && cd ..
 
-# 3. Build frontend
-cd frontend && npm run build && cd ..
-
-# 4. Start server
+# 3. Start server
 npm run dev
 ```
 
@@ -98,7 +93,7 @@ Server runs at `http://localhost:8000` (or the port from `.env`).
 ### Run with npx (no clone)
 
 ```bash
-npx github:francbohuslav/ai-code-search
+npx -y github:francbohuslav/ai-code-search
 ```
 
 Set **SOURCES_DIR** and **CODEBASE_LIST_PATH** in your environment. The GUI will work only if the frontend is built (in the npx cache you can run `cd frontend && npm install && npm run build` from the installed package directory, or clone the repo and use the steps above).
@@ -127,14 +122,11 @@ cd frontend && npm run dev
 
 Frontend at `http://localhost:5173`; API calls go to the backend.
 
----
-
 ## Environment variables summary
 
-| Variable | Required | Used by | Description |
-|---------|----------|---------|-------------|
-| **SOURCES_DIR** | yes | both | Directory for cloned projects (one subfolder per project). |
-| **CODEBASE_LIST_PATH** | yes* | both | Path to JSON file: array of codebase URLs. *Required for MCP and for codebase list in GUI. |
-| **PORT** | no | GUI only | HTTP server port (default 8000). |
-| **CURSOR_AGENT_CMD** | no | both | Command to run cursor-agent (default `"cursor-agent"`). |
-
+| Variable               | Required | MCP/GUI  | Description                                                 |
+| ---------------------- | -------- | -------- | ----------------------------------------------------------  |
+| **SOURCES_DIR**        | yes      | both     | Directory for cloned projects (one subfolder per project).  |
+| **CODEBASE_LIST_PATH** | no       | both     | Path to JSON file: array of codebase URLs.                  |
+| **PORT**               | no       | GUI only | HTTP server port (default 8000).                            |
+| **CURSOR_AGENT_CMD**   | no       | both     | Command to run cursor-agent (default `"cursor-agent"`).     |
