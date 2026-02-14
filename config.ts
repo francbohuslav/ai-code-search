@@ -72,10 +72,12 @@ export function getAgentType(): AgentType {
 
 /**
  * Returns the command used to run the agent (cursor-agent or Gemini CLI).
- * Defaults to "cursor-agent" when AGENT_CMD is not set.
+ * Defaults to "cursor-agent" when AGENT_TYPE is cursor, "gemini" when AGENT_TYPE is gemini.
  */
 export function getAgentCommand(): string {
-	return readEnv("AGENT_CMD") ?? "cursor-agent";
+	const fromEnv = readEnv("AGENT_CMD");
+	if (fromEnv) return fromEnv;
+	return getAgentType() === "gemini" ? "gemini" : "cursor-agent";
 }
 
 /**

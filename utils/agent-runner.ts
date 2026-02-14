@@ -1,6 +1,6 @@
 import type { ChildProcess } from "node:child_process";
 import type { Readable } from "node:stream";
-import { getAgentType } from "../config";
+import { getAgentCommand, getAgentType } from "../config";
 import { runCursorAgentStream } from "./cursor-agent";
 import { runGeminiStream } from "./gemini-agent";
 
@@ -13,6 +13,8 @@ export function runAgentStream(
 	prompt: string,
 ): { stdout: Readable; child: ChildProcess } {
 	const agentType = getAgentType();
+	const cmd = getAgentCommand();
+	console.error(`[agent] type=${agentType} cmd=${cmd}`);
 	switch (agentType) {
 		case "cursor":
 			return runCursorAgentStream(projectPath, prompt);
