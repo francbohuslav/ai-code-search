@@ -47,12 +47,35 @@ export function getSourcesDir(override?: string): string {
 	return fromEnv;
 }
 
+export type AgentType = "cursor" | "gemini";
+
+const ALLOWED_AGENT_TYPES: AgentType[] = ["cursor", "gemini"];
+
 /**
- * Returns the command used to start cursor-agent.
- * Defaults to "cursor-agent" when CURSOR_AGENT_CMD is not set.
+ * Returns the agent type. Valid values: "cursor" | "gemini".
+ * Defaults to "cursor" when AGENT_TYPE is not set.
+ * Throws when AGENT_TYPE is set to an invalid value.
  */
-export function getCursorAgentCommand(): string {
-	return readEnv("CURSOR_AGENT_CMD") ?? "cursor-agent";
+export function getAgentType(): AgentType {
+	const raw = readEnv("AGENT_TYPE");
+	if (!raw) {
+		return "cursor";
+	}
+	const normalized = raw.toLowerCase();
+	if (ALLOWED_AGENT_TYPES.includes(normalized as AgentType)) {
+		return normalized as AgentType;
+	}
+	throw new Error(
+		`Invalid AGENT_TYPE: "${raw}". Allowed values: ${ALLOWED_AGENT_TYPES.join(", ")}.`,
+	);
+}
+
+/**
+ * Returns the command used to run the agent (cursor-agent or Gemini CLI).
+ * Defaults to "cursor-agent" when AGENT_CMD is not set.
+ */
+export function getAgentCommand(): string {
+	return readEnv("AGENT_CMD") ?? "cursor-agent";
 }
 
 /**

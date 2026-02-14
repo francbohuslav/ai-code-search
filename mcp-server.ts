@@ -8,7 +8,7 @@ import { z } from "zod";
 import dotenv from "dotenv";
 import path from "node:path";
 import { getCodebaseMap } from "./utils/codebase-list";
-import { runCursorAgentStream } from "./utils/cursor-agent";
+import { runAgentStream } from "./utils/agent-runner";
 import {
 	cloneRepository,
 	getProjectPath,
@@ -180,7 +180,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 		console.log(`[mcp] project=${library} dir=${projectPath}`);
 		console.log(`[mcp] prompt=${prompt} (streaming)`);
 
-		const { stdout, child } = runCursorAgentStream(projectPath, prompt);
+		const { stdout, child } = runAgentStream(projectPath, prompt);
 
 		// Collect stream output
 		let resultMarkdown = "";

@@ -2,7 +2,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import express, { Router } from "express";
 import { getCodebaseMap } from "../utils/codebase-list";
-import { runCursorAgentStream } from "../utils/cursor-agent";
+import { runAgentStream } from "../utils/agent-runner";
 import {
 	cloneRepository,
 	getProjectPath,
@@ -134,7 +134,7 @@ apiRouter.post("/search", async (req, res) => {
 		console.log(`[search] project=${project} dir=${projectPath}`);
 		console.log(`[search] prompt=${prompt} (streaming)`);
 		const startMs = Date.now();
-		const { stdout, child } = runCursorAgentStream(projectPath, prompt);
+		const { stdout, child } = runAgentStream(projectPath, prompt);
 
 		child.on("error", (err) => {
 			console.error("Failed to start cursor-agent process", err);

@@ -1,7 +1,7 @@
 import { spawn } from "node:child_process";
 import type { ChildProcess } from "node:child_process";
 import type { Readable } from "node:stream";
-import { getCursorAgentCommand } from "../config";
+import { getAgentCommand } from "../config";
 
 const AGENT_ARGS = [
 	"-p",
@@ -22,7 +22,7 @@ export function runCursorAgentStream(
 	projectPath: string,
 	prompt: string,
 ): { stdout: Readable; child: ChildProcess } {
-	const cmd = getCursorAgentCommand();
+	const cmd = getAgentCommand();
 	const fullPrompt = `${prompt.trim()}. Do not change any files! Only return results in chat!`;
 	const isWindows = process.platform === "win32";
 	const child = spawn(cmd, [...AGENT_ARGS, fullPrompt], {
@@ -47,7 +47,7 @@ export async function runCursorAgent(
 ): Promise<{ stdout: string; stderr: string; code: number }> {
 	const execaModule = await import("execa");
 	const execa = execaModule.default;
-	const cmd = getCursorAgentCommand();
+	const cmd = getAgentCommand();
 	const fullPrompt = `${prompt.trim()} Do not change any files! Only return results in chat!`;
 	const argsNoStream = AGENT_ARGS.filter(
 		(a) => a !== "--output-format" && a !== "stream-json",

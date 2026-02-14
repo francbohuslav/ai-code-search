@@ -10,13 +10,26 @@ Backend is Node.js (TypeScript), frontend is React with Material UI.
 ## Requirements
 
 - [Node.js](https://nodejs.org/) and npm
-- [Cursor CLI](https://cursor.com/cli) **cursor-agent** installed in PATH \
+- [Cursor CLI](https://cursor.com/cli) **cursor-agent** or [Gemini CLI](https://geminicli.com/) **gemini** installed in PATH \
   Helpful commands (Windows PowerShell):
-  - ```irm 'https://cursor.com/install?win32=true' | iex```
-  - ```winget install BurntSushi.ripgrep.MSVC```
-  - ```cursor-agent --version``` - everything is OK if version is printed
+
 - **SOURCES_DIR** – directory where cloned projects live (one subdirectory per project)
 - optional **CODEBASE_LIST_PATH** – path to a JSON file with the list of available codebase URLs
+
+### Cursor Agent helpful commands
+
+Use official installation guide from Cursor. If you struggle, use these commands:
+
+- `irm 'https://cursor.com/install?win32=true' | iex`
+- `winget install BurntSushi.ripgrep.MSVC`
+- `cursor-agent --version` - everything is OK if version is printed
+
+### Gemini CLI helpful commands
+
+Use official installation guide from Gemini. If you struggle, use these commands:
+
+- `npm install -g @google/gemini-cli`
+- `gemini -v` - everything is OK if version is printed
 
 ## 1. MCP server
 
@@ -24,7 +37,7 @@ Use ai-code-search as an MCP server so that your IDE or Claude can call **questi
 
 ### What you need to do
 
-1. **Install cursor-agent** and ensure it is in your PATH (or set `CURSOR_AGENT_CMD`).
+1. **Install the agent CLI** (cursor-agent or Gemini CLI) and ensure it is in your PATH (or set **AGENT_CMD**).
 2. **Configure your MCP client** with the path to this server and the required environment variables.
 
 ### MCP client configuration
@@ -50,7 +63,7 @@ Add the server to your MCP config. Use **SOURCES_DIR** (where clones are stored)
 
 **Example – Claude Desktop** (use the same structure in your Claude MCP config file, e.g. `~/Library/Application Support/Claude/claude_desktop_config.json` on macOS).
 
-Optional env var: **CURSOR_AGENT_CMD** – command to run cursor-agent (default `"cursor-agent"`).
+Optional env vars: **AGENT_TYPE** (`cursor` | `gemini`, default `cursor`), **AGENT_CMD** – command to run the agent (default `"cursor-agent"` for cursor; for gemini use e.g. `"gemini"`).
 
 ### MCP tools
 
@@ -68,7 +81,8 @@ Run the web server and open the UI in a browser. You select a project (from `SOU
    - **SOURCES_DIR** – absolute path to the directory with project subdirectories (required).
    - **CODEBASE_LIST_PATH** – absolute path to your codebase list JSON file (required if you want the dropdown to show codebases from the list).
    - **PORT** (optional) – HTTP server port, default 8000.
-   - **CURSOR_AGENT_CMD** (optional) – command for cursor-agent, default `"cursor-agent"`.
+   - **AGENT_TYPE** (optional) – `cursor` | `gemini`, default `cursor`.
+   - **AGENT_CMD** (optional) – command for the agent (default `"cursor-agent"`; for gemini e.g. `"gemini"`).
 
 2. **Install and build:**
 
@@ -128,9 +142,10 @@ Frontend at `http://localhost:5173`; API calls go to the backend.
 
 ## Environment variables summary
 
-| Variable               | Required | MCP/GUI  | Description                                                 |
-| ---------------------- | -------- | -------- | ----------------------------------------------------------  |
-| **SOURCES_DIR**        | yes      | both     | Directory for cloned projects (one subfolder per project).  |
-| **CODEBASE_LIST_PATH** | no       | both     | Path to JSON file: array of codebase URLs.                  |
-| **PORT**               | no       | GUI only | HTTP server port (default 8000).                            |
-| **CURSOR_AGENT_CMD**   | no       | both     | Command to run cursor-agent (default `"cursor-agent"`).     |
+| Variable               | Required | MCP/GUI  | Description                                                |
+| ---------------------- | -------- | -------- | ---------------------------------------------------------- | ---------------------------- |
+| **SOURCES_DIR**        | yes      | both     | Directory for cloned projects (one subfolder per project). |
+| **CODEBASE_LIST_PATH** | no       | both     | Path to JSON file: array of codebase URLs.                 |
+| **PORT**               | no       | GUI only | HTTP server port (default 8000).                           |
+| **AGENT_TYPE**         | no       | both     | Agent type: `cursor`                                       | `gemini` (default `cursor`). |
+| **AGENT_CMD**          | no       | both     | Command to run the agent (default `"cursor-agent"`).       |
