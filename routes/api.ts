@@ -1,7 +1,7 @@
-import { promises as fs } from "node:fs";
-import path from "node:path";
 import express, { Router } from "express";
+import { getAgentBackend } from "../config";
 import { getCodebaseMap } from "../utils/codebase-list";
+import { runClaudeAgentStream } from "../utils/claude-agent";
 import { runCursorAgentStream } from "../utils/cursor-agent";
 import {
 	cloneRepository,
@@ -53,26 +53,18 @@ apiRouter.post("/search", async (req, res) => {
 	let cloneUrl: string | null = null;
 	if (needClone) {
 		const codebaseMap = await getCodebaseMap();
-		const url = codebaseMap.get(project);
-		if (!url) {
+		const entry = codebaseMap.get(project);
+		if (!entry) {
 			res.status(400).json({
 				error:
 					"Project not found. Select a project from the list or ensure it exists in SOURCES_DIR.",
 			});
 			return;
 		}
-		cloneUrl = url;
+		cloneUrl = entry.url;
 	}
 
 	try {
-		if (prompt === "test") {
-			const testPath = path.join(process.cwd(), "test.md");
-			const stdout = await fs.readFile(testPath, "utf8");
-			console.log("[search] fake response from test.md (prompt=test)");
-			res.json({ stdout, stderr: "", code: 0 });
-			return;
-		}
-
 		res.setHeader("Content-Type", "application/x-ndjson; charset=utf-8");
 		res.setHeader("X-Response-Mode", "stream");
 		res.setHeader("Cache-Control", "no-cache");
@@ -131,9 +123,26 @@ apiRouter.post("/search", async (req, res) => {
 		}
 
 		const projectPath = getProjectPath(project);
-		console.log(`[search] project=${project} dir=${projectPath}`);
+		const backend = getAgentBackend();
+		console.log(`[search] project=${project} dir=${projectPath} backend=${backend}`);
 		console.log(`[search] prompt=${prompt} (streaming)`);
 		const startMs = Date.now();
+
+		if (backend === "claude") {
+			try {
+				for await (const event of runClaudeAgentStream(projectPath, prompt)) {
+					res.write(`${JSON.stringify(event)}\n`);
+				}
+			} catch (e) {
+				const msg = e instanceof Error ? e.message : "Claude agent error";
+				res.write(`${JSON.stringify({ error: msg })}\n`);
+			}
+			const elapsedSec = ((Date.now() - startMs) / 1000).toFixed(2);
+			console.log(`[search] done in ${elapsedSec}s`);
+			res.end();
+			return;
+		}
+
 		const { stdout, child } = runCursorAgentStream(projectPath, prompt);
 
 		child.on("error", (err) => {
@@ -169,7 +178,7 @@ apiRouter.post("/search", async (req, res) => {
 		});
 	} catch (e) {
 		res.status(500).json({
-			error: e instanceof Error ? e.message : "Failed to run cursor-agent",
+			error: e instanceof Error ? e.message : "Failed to run agent",
 		});
 	}
 });

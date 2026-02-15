@@ -9,6 +9,7 @@ import dotenv from "dotenv";
 import path from "node:path";
 import { getCodebaseMap } from "./utils/codebase-list";
 import { runCursorAgentStream } from "./utils/cursor-agent";
+import { runClaudeAgentStream } from "./utils/claude-agent";
 import {
 	cloneRepository,
 	getProjectPath,
@@ -17,9 +18,9 @@ import {
 } from "./utils/projects";
 import { parseStreamEvent } from "./utils/stream-parser";
 import { needsPull, updateLastPullDate } from "./utils/metadata";
+import { getAgentBackend } from "./config";
 
-// Load .env if present - ensure we load from the project root directory
-// When running via npm script, process.cwd() should be correct, but we'll use explicit path resolution
+// Load .env if present
 const projectRoot = process.cwd();
 dotenv.config({ path: path.join(projectRoot, ".env") });
 
@@ -35,16 +36,15 @@ const server = new Server(
 	},
 );
 
-// Question tool schema
+// Tool schemas
 const questionSchema = z.object({
 	library: z.string().describe("Name of the library/project to query"),
 	prompt: z.string().describe("Question or prompt to ask about the library"),
 });
 
-// List libraries tool schema (no parameters)
 const listLibrariesSchema = z.object({});
 
-// Register question tool
+// Register tools
 server.setRequestHandler(ListToolsRequestSchema, async () => {
 	return {
 		tools: [
@@ -79,7 +79,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
 	};
 });
 
-// Handle question tool call
+// Handle tool calls
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
 	const { name, arguments: args } = request.params;
 
@@ -91,12 +91,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 			throw new Error("Library and prompt are required");
 		}
 
-		// Get progress token if available for streaming updates
 		const progressToken = (
 			request.params as { _meta?: { progressToken?: string } }
 		)._meta?.progressToken;
 
-		// Helper to send progress notification
 		const sendProgress = async (
 			progress: number,
 			total: number | null,
@@ -115,7 +113,6 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 						},
 					});
 				} catch (err) {
-					// Ignore errors sending progress (client may not support it)
 					console.error("[mcp] Failed to send progress:", err);
 				}
 			}
@@ -128,20 +125,20 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
 		if (needClone) {
 			const codebaseMap = await getCodebaseMap();
-			const url = codebaseMap.get(library);
-			if (!url) {
+			const entry = codebaseMap.get(library);
+			if (!entry) {
 				throw new Error(
 					`Library "${library}" not found. Use list_libraries to see available libraries.`,
 				);
 			}
-			cloneUrl = url;
+			cloneUrl = entry.url;
 		}
 
 		// Clone if needed
 		if (needClone && cloneUrl) {
 			try {
-				await sendProgress(10, 100, "Cloning repository…");
-				console.log(`[mcp] cloning ${library} from ${cloneUrl}`);
+				await sendProgress(10, 100, "Cloning repository...");
+				console.error(`[mcp] cloning ${library} from ${cloneUrl}`);
 				await cloneRepository(cloneUrl);
 				const afterClone = await getProjects();
 				if (!afterClone.includes(library)) {
@@ -159,8 +156,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 		const shouldPull = await needsPull(library);
 		if (shouldPull) {
 			try {
-				await sendProgress(needClone ? 35 : 10, 100, "Updating repository…");
-				console.log(`[mcp] pulling ${library}`);
+				await sendProgress(needClone ? 35 : 10, 100, "Updating repository...");
+				console.error(`[mcp] pulling ${library}`);
 				await pullRepository(library);
 				await updateLastPullDate(library);
 				await sendProgress(
@@ -175,108 +172,16 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 			}
 		}
 
-		// Run cursor-agent with streaming
 		const projectPath = getProjectPath(library);
-		console.log(`[mcp] project=${library} dir=${projectPath}`);
-		console.log(`[mcp] prompt=${prompt} (streaming)`);
+		console.error(`[mcp] project=${library} dir=${projectPath}`);
+		console.error(`[mcp] prompt=${prompt} backend=${getAgentBackend()}`);
 
-		const { stdout, child } = runCursorAgentStream(projectPath, prompt);
+		const backend = getAgentBackend();
 
-		// Collect stream output
-		let resultMarkdown = "";
-		const statusMessages: string[] = [];
-		let lastProgress = needClone ? (shouldPull ? 40 : 30) : shouldPull ? 15 : 0;
-		const decoder = new TextDecoder();
-		let buffer = "";
-
-		return new Promise((resolve, reject) => {
-			child.on("error", (err) => {
-				console.error("Failed to start cursor-agent process", err);
-				reject(
-					new Error(
-						"Failed to start cursor-agent process. Ensure cursor-agent is installed and available in PATH.",
-					),
-				);
-			});
-
-			stdout.on("data", async (chunk: Buffer) => {
-				buffer += decoder.decode(chunk, { stream: true });
-				const lines = buffer.split("\n");
-				buffer = lines.pop() ?? "";
-
-				for (const line of lines) {
-					const parsed = parseStreamEvent(line);
-					if (!parsed) continue;
-
-					if (parsed.error) {
-						reject(new Error(parsed.error));
-						return;
-					}
-
-					if (parsed.status) {
-						statusMessages.push(parsed.status);
-						// Send progress update with status message
-						lastProgress = Math.min(lastProgress + 5, 90);
-						await sendProgress(lastProgress, 100, parsed.status).catch(
-							() => {},
-						);
-					}
-
-					if (parsed.result) {
-						resultMarkdown = parsed.result;
-					}
-				}
-			});
-
-			stdout.on("end", async () => {
-				if (buffer) {
-					const parsed = parseStreamEvent(buffer);
-					if (parsed?.error) {
-						reject(new Error(parsed.error));
-						return;
-					}
-					if (parsed?.status) {
-						statusMessages.push(parsed.status);
-					}
-					if (parsed?.result) {
-						resultMarkdown = parsed.result;
-					}
-				}
-
-				// Send final progress
-				await sendProgress(100, 100, "Completed").catch(() => {});
-
-				// Return final result with status messages included
-				const statusText =
-					statusMessages.length > 0
-						? `\n\n_Status updates: ${statusMessages.join(", ")}_\n\n`
-						: "";
-				const finalText = resultMarkdown
-					? `${resultMarkdown}${statusText}`
-					: `No result returned.${statusText}`;
-
-				resolve({
-					content: [
-						{
-							type: "text",
-							text: finalText,
-						},
-					],
-					isError: false,
-				});
-			});
-
-			stdout.on("error", (err: Error) => {
-				console.error("Error reading cursor-agent stream", err);
-				reject(new Error(`Stream error: ${err.message}`));
-			});
-
-			child.on("close", (code) => {
-				if (code !== 0 && code !== null) {
-					console.log(`[mcp] cursor-agent exited with code ${code}`);
-				}
-			});
-		});
+		if (backend === "claude") {
+			return await runWithClaudeAgent(projectPath, prompt, sendProgress, needClone, shouldPull);
+		}
+		return await runWithCursorAgent(projectPath, prompt, sendProgress, needClone, shouldPull);
 	}
 
 	if (name === "list_libraries") {
@@ -291,16 +196,24 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 			const remoteOnly = codebaseKeys.filter((k) => !local.includes(k));
 
 			const libraries = [
-				...local.map((name) => ({
-					name,
-					downloaded: true,
-					url: codebaseMap.get(name),
-				})),
-				...remoteOnly.map((name) => ({
-					name,
-					downloaded: false,
-					url: codebaseMap.get(name),
-				})),
+				...local.map((n) => {
+					const entry = codebaseMap.get(n);
+					return {
+						name: n,
+						downloaded: true,
+						url: entry?.url,
+						description: entry?.description,
+					};
+				}),
+				...remoteOnly.map((n) => {
+					const entry = codebaseMap.get(n);
+					return {
+						name: n,
+						downloaded: false,
+						url: entry?.url,
+						description: entry?.description,
+					};
+				}),
 			].sort((a, b) => a.name.localeCompare(b.name));
 
 			return {
@@ -320,6 +233,147 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
 	throw new Error(`Unknown tool: ${name}`);
 });
+
+async function runWithClaudeAgent(
+	projectPath: string,
+	prompt: string,
+	sendProgress: (progress: number, total: number | null, message?: string) => Promise<void>,
+	needClone: boolean,
+	shouldPull: boolean,
+) {
+	let resultMarkdown = "";
+	const statusMessages: string[] = [];
+	let lastProgress = needClone ? (shouldPull ? 40 : 30) : shouldPull ? 15 : 0;
+
+	try {
+		for await (const event of runClaudeAgentStream(projectPath, prompt)) {
+			if (event.error) {
+				throw new Error(event.error);
+			}
+			if (event.status) {
+				statusMessages.push(event.status);
+				lastProgress = Math.min(lastProgress + 5, 90);
+				await sendProgress(lastProgress, 100, event.status).catch(() => {});
+			}
+			if (event.result) {
+				resultMarkdown = event.result;
+			}
+		}
+	} catch (e) {
+		const msg = e instanceof Error ? e.message : "Claude agent error";
+		throw new Error(msg);
+	}
+
+	await sendProgress(100, 100, "Completed").catch(() => {});
+
+	const statusText =
+		statusMessages.length > 0
+			? `\n\n_Status updates: ${statusMessages.join(", ")}_\n\n`
+			: "";
+	const finalText = resultMarkdown
+		? `${resultMarkdown}${statusText}`
+		: `No result returned.${statusText}`;
+
+	return {
+		content: [{ type: "text" as const, text: finalText }],
+		isError: false,
+	};
+}
+
+async function runWithCursorAgent(
+	projectPath: string,
+	prompt: string,
+	sendProgress: (progress: number, total: number | null, message?: string) => Promise<void>,
+	needClone: boolean,
+	shouldPull: boolean,
+): Promise<{ content: { type: "text"; text: string }[]; isError: boolean }> {
+	const { stdout, child } = runCursorAgentStream(projectPath, prompt);
+
+	let resultMarkdown = "";
+	const statusMessages: string[] = [];
+	let lastProgress = needClone ? (shouldPull ? 40 : 30) : shouldPull ? 15 : 0;
+	const decoder = new TextDecoder();
+	let buffer = "";
+
+	return new Promise((resolve, reject) => {
+		child.on("error", (err) => {
+			console.error("Failed to start cursor-agent process", err);
+			reject(
+				new Error(
+					"Failed to start cursor-agent process. Ensure cursor-agent is installed and available in PATH.",
+				),
+			);
+		});
+
+		stdout.on("data", async (chunk: Buffer) => {
+			buffer += decoder.decode(chunk, { stream: true });
+			const lines = buffer.split("\n");
+			buffer = lines.pop() ?? "";
+
+			for (const line of lines) {
+				const parsed = parseStreamEvent(line);
+				if (!parsed) continue;
+
+				if (parsed.error) {
+					reject(new Error(parsed.error));
+					return;
+				}
+
+				if (parsed.status) {
+					statusMessages.push(parsed.status);
+					lastProgress = Math.min(lastProgress + 5, 90);
+					await sendProgress(lastProgress, 100, parsed.status).catch(() => {});
+				}
+
+				if (parsed.result) {
+					resultMarkdown = parsed.result;
+				}
+			}
+		});
+
+		stdout.on("end", async () => {
+			if (buffer) {
+				const parsed = parseStreamEvent(buffer);
+				if (parsed?.error) {
+					reject(new Error(parsed.error));
+					return;
+				}
+				if (parsed?.status) {
+					statusMessages.push(parsed.status);
+				}
+				if (parsed?.result) {
+					resultMarkdown = parsed.result;
+				}
+			}
+
+			await sendProgress(100, 100, "Completed").catch(() => {});
+
+			const statusText =
+				statusMessages.length > 0
+					? `\n\n_Status updates: ${statusMessages.join(", ")}_\n\n`
+					: "";
+			const finalText = resultMarkdown
+				? `${resultMarkdown}${statusText}`
+				: `No result returned.${statusText}`;
+
+			resolve({
+				content: [{ type: "text" as const, text: finalText }],
+				isError: false,
+			});
+		});
+
+		stdout.on("error", (err: Error) => {
+			console.error("Error reading cursor-agent stream", err);
+			reject(new Error(`Stream error: ${err.message}`));
+		});
+
+		child.on("close", (code) => {
+			if (code !== 0 && code !== null) {
+				console.error(`[mcp] cursor-agent exited with code ${code}`);
+			}
+		});
+	});
+}
 
 // Start server
 let serverTransport: StdioServerTransport | null = null;

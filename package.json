@@ -16,6 +16,7 @@
 		"check": "tsc -p tsconfig.server.json --noEmit"
 	},
 	"dependencies": {
+		"@anthropic-ai/claude-agent-sdk": "^0.2.42",
 		"@modelcontextprotocol/sdk": "^1.0.0",
 		"dotenv": "^16.4.5",
 		"execa": "^5.1.1",

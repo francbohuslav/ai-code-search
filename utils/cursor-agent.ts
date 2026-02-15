@@ -9,6 +9,7 @@ const AGENT_ARGS = [
 	"ask",
 	"--model",
 	"auto",
+	"--trust",
 	"--output-format",
 	"stream-json",
 	"agent",

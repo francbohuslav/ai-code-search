@@ -4,6 +4,8 @@
  * touching process.env directly in feature modules.
  */
 
+import { execSync } from "node:child_process";
+
 function readEnv(name: string): string | undefined {
 	const value = process.env[name];
 	if (typeof value !== "string") return undefined;
@@ -68,4 +70,67 @@ export function getCodebaseListPath(): string {
 		);
 	}
 	return fromEnv;
+}
+
+export type AgentBackend = "cursor" | "claude";
+
+/**
+ * Returns the agent backend to use for code search.
+ * When AGENT_BACKEND is set to "cursor" or "claude", that value is used directly.
+ * When AGENT_BACKEND is "auto" or not set, the backend is detected automatically:
+ *   - If ANTHROPIC_API_KEY is set → "claude"
+ *   - If cursor-agent CLI is found in PATH → "cursor"
+ *   - Throws if neither is available.
+ */
+export function getAgentBackend(): AgentBackend {
+	const val = readEnv("AGENT_BACKEND");
+	if (val === "claude") return "claude";
+	if (val === "cursor") return "cursor";
+	return detectAgentBackend();
+}
+
+let detectedBackend: AgentBackend | undefined;
+
+function detectAgentBackend(): AgentBackend {
+	if (detectedBackend) return detectedBackend;
+
+	const hasAnthropicKey = !!readEnv("ANTHROPIC_API_KEY");
+	const hasCursorAgent = isCursorAgentAvailable();
+
+	if (hasAnthropicKey && hasCursorAgent) {
+		// Both available — prefer claude (SDK-based, no external process)
+		detectedBackend = "claude";
+	} else if (hasAnthropicKey) {
+		detectedBackend = "claude";
+	} else if (hasCursorAgent) {
+		detectedBackend = "cursor";
+	} else {
+		throw new Error(
+			"No agent backend available. Either set ANTHROPIC_API_KEY for Claude or install cursor-agent CLI. " +
+				"You can also set AGENT_BACKEND explicitly to 'cursor' or 'claude'.",
+		);
+	}
+
+	return detectedBackend;
+}
+
+function isCursorAgentAvailable(): boolean {
+	const cmd = getCursorAgentCommand();
+	try {
+		const isWindows = process.platform === "win32";
+		execSync(isWindows ? `where ${cmd}` : `which ${cmd}`, {
+			stdio: "ignore",
+		});
+		return true;
+	} catch {
+		return false;
+	}
+}
+
+/**
+ * Returns the Claude model to use (optional).
+ * When not set, the SDK uses its default model.
+ */
+export function getClaudeModel(): string | undefined {
+	return readEnv("CLAUDE_MODEL");
 }
