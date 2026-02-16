@@ -148,11 +148,36 @@ apiRouter.post("/search", async (req, res) => {
 			res.end();
 		});
 
+		// Collect stderr for error reporting
+		let stderrBuffer = "";
+		let exitCode: number | null = null;
+		let streamEnded = false;
+		if (child.stderr) {
+			child.stderr.setEncoding("utf8");
+			child.stderr.on("data", (chunk: string) => {
+				stderrBuffer += chunk;
+			});
+		}
+
 		child.on("close", (code) => {
+			exitCode = code;
 			const elapsedSec = ((Date.now() - startMs) / 1000).toFixed(2);
 			console.log(
 				`[search] done in ${elapsedSec}s (exit code: ${code ?? "unknown"})`,
 			);
+			if (code !== 0 && code !== null) {
+				const stderrTrim = stderrBuffer.trim();
+				const errorMsg = stderrTrim
+					? `Exit code ${code}. stderr:\n${stderrTrim}`
+					: `Process exited with code ${code}.`;
+				console.error("[search]", errorMsg);
+				// Send error to stream if not already ended
+				if (!streamEnded && !res.closed && !res.destroyed) {
+					res.write(
+						`${JSON.stringify({ type: "error", error: errorMsg })}\n`,
+					);
+				}
+			}
 		});
 
 		stdout.on("data", (chunk: Buffer) => {
@@ -160,6 +185,17 @@ apiRouter.post("/search", async (req, res) => {
 		});
 
 		stdout.on("end", () => {
+			streamEnded = true;
+			// If process exited with error code but no error was sent in stream, send it now
+			if (exitCode !== 0 && exitCode !== null && !res.closed && !res.destroyed) {
+				const stderrTrim = stderrBuffer.trim();
+				const errorMsg = stderrTrim
+					? `Exit code ${exitCode}. stderr:\n${stderrTrim}`
+					: `Process exited with code ${exitCode}.`;
+				res.write(
+					`${JSON.stringify({ type: "error", error: errorMsg })}\n`,
+				);
+			}
 			res.end();
 		});
 

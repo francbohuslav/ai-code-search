@@ -11,6 +11,7 @@ const AGENT_ARGS = [
 	"auto",
 	"--output-format",
 	"stream-json",
+   "--trust",
 	"agent",
 ];
 
@@ -33,6 +34,24 @@ export function runCursorAgentStream(
 
 	if (!child.stdout) {
 		throw new Error("Failed to start cursor-agent: stdout stream is null");
+	}
+
+	// Log stderr to console for debugging
+	if (child.stderr) {
+		let stderrBuffer = "";
+		child.stderr.setEncoding("utf8");
+		child.stderr.on("data", (chunk: string) => {
+			stderrBuffer += chunk;
+		});
+		child.on("close", (code) => {
+			if (code !== 0 && code !== null) {
+				const stderrTrim = stderrBuffer.trim();
+				const errorMsg = stderrTrim
+					? `Exit code ${code}. stderr:\n${stderrTrim}`
+					: `Process exited with code ${code}.`;
+				console.error("[cursor-agent]", errorMsg);
+			}
+		});
 	}
 
 	return { stdout: child.stdout, child };

@@ -60,6 +60,8 @@ export async function runSearch(
 	const decoder = new TextDecoder();
 	let buffer = "";
 	let resultMarkdown = "";
+	let errorMessage = "";
+	let exitCode = 0;
 	const reader = res.body.getReader();
 
 	try {
@@ -72,19 +74,28 @@ export async function runSearch(
 			for (const line of lines) {
 				const parsed = parseStreamEvent(line);
 				if (!parsed) continue;
-				if (parsed.error) throw new Error(parsed.error);
+				if (parsed.error) {
+					errorMessage = parsed.error;
+					exitCode = 1;
+					// Don't throw - return error in SearchResult instead
+					break;
+				}
 				if (parsed.status) callbacks?.onStatus?.(parsed.status);
 				if (parsed.result) {
 					resultMarkdown = parsed.result;
 					callbacks?.onResult?.(parsed.result);
 				}
 			}
+			if (exitCode !== 0) break;
 		}
-		if (buffer) {
+		if (buffer && exitCode === 0) {
 			const parsed = parseStreamEvent(buffer);
-			if (parsed?.error) throw new Error(parsed.error);
-			if (parsed?.status) callbacks?.onStatus?.(parsed.status);
-			if (parsed?.result) {
+			if (parsed?.error) {
+				errorMessage = parsed.error;
+				exitCode = 1;
+			} else if (parsed?.status) {
+				callbacks?.onStatus?.(parsed.status);
+			} else if (parsed?.result) {
 				resultMarkdown = parsed.result;
 				callbacks?.onResult?.(parsed.result);
 			}
@@ -93,5 +104,9 @@ export async function runSearch(
 		reader.releaseLock();
 	}
 
-	return { stdout: resultMarkdown, stderr: "", code: 0 };
+	return {
+		stdout: resultMarkdown,
+		stderr: errorMessage,
+		code: exitCode,
+	};
 }

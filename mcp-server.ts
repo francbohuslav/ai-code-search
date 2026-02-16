@@ -190,11 +190,20 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 		let buffer = "";
 
 		return new Promise((resolve, reject) => {
+			// Collect stderr for error reporting
+			let stderrBuffer = "";
+			if (child.stderr) {
+				child.stderr.setEncoding("utf8");
+				child.stderr.on("data", (chunk: string) => {
+					stderrBuffer += chunk;
+				});
+			}
+
 			child.on("error", (err) => {
-				console.error("Failed to start cursor-agent process", err);
+				console.error("[mcp] Failed to start agent process", err);
 				reject(
 					new Error(
-						"Failed to start cursor-agent process. Ensure cursor-agent is installed and available in PATH.",
+						"Failed to start agent process. Ensure the agent CLI is installed and available in PATH.",
 					),
 				);
 			});
@@ -273,7 +282,11 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
 			child.on("close", (code) => {
 				if (code !== 0 && code !== null) {
-					console.log(`[mcp] cursor-agent exited with code ${code}`);
+					const stderrTrim = stderrBuffer.trim();
+					const errorMsg = stderrTrim
+						? `Exit code ${code}. stderr:\n${stderrTrim}`
+						: `Process exited with code ${code}.`;
+					console.error(`[mcp]`, errorMsg);
 				}
 			});
 		});
