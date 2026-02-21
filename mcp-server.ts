@@ -286,13 +286,14 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 					const errorMsg = stderrTrim
 						? `Exit code ${code}. stderr:\n${stderrTrim}`
 						: `Process exited with code ${code}.`;
-					console.error(`[mcp]`, errorMsg);
+					console.error("[mcp]", errorMsg);
 				}
 			});
 		});
 	}
 
 	if (name === "list_libraries") {
+		listLibrariesSchema.parse(args as unknown);
 		try {
 			const [localProjects, codebaseMap] = await Promise.all([
 				getProjects(),

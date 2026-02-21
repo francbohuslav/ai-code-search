@@ -148,7 +148,7 @@ async function getBranchToPull(projectPath: string): Promise<string> {
 			});
 			return branch;
 		} catch {
-			continue;
+			// try next branch
 		}
 	}
 	return currentBranch;

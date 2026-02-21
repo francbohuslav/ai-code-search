@@ -111,8 +111,7 @@ export function runGeminiStream(
 	child.stdout?.on("data", (chunk: string) => {
 		stdoutBuffer += chunk;
 		lineBuffer += chunk;
-		let idx: number;
-		while ((idx = lineBuffer.indexOf("\n")) !== -1) {
+		for (let idx = lineBuffer.indexOf("\n"); idx !== -1; idx = lineBuffer.indexOf("\n")) {
 			const raw = lineBuffer.slice(0, idx).trim();
 			lineBuffer = lineBuffer.slice(idx + 1);
 			if (!raw) continue;
