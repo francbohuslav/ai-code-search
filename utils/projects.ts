@@ -59,8 +59,11 @@ export function getProjectPath(
 	return path.join(dir, projectName);
 }
 
+const BRANCH_ORDER = ["sprint", "master", "main"];
+
 /**
  * Clones a repository into SOURCES_DIR. The created folder name is the last segment of the URL.
+ * Tries branches in order: sprint, master, main. Logs which branch is tried and which one is used.
  */
 export async function cloneRepository(
 	url: string,
@@ -69,34 +72,92 @@ export async function cloneRepository(
 	const execaModule = await import("execa");
 	const execa = execaModule.default;
 	const dir = getSourcesDir(sourcesDir);
+	let lastError: Error | null = null;
 
-	try {
-		await execa("git", ["clone", url], {
-			cwd: dir,
-			stdin: "ignore",
-			stdout: "ignore",
-			stderr: "pipe",
-		});
-	} catch (error: unknown) {
-		if (
-			error &&
-			typeof error === "object" &&
-			"stderr" in error &&
-			"exitCode" in error
-		) {
-			const execaError = error as { stderr?: string; exitCode?: number };
-			const stderrText = execaError.stderr?.trim() ?? "";
-			throw new Error(
-				`git clone failed: ${stderrText || `exit code ${execaError.exitCode ?? "unknown"}`}`,
-			);
+	for (const branch of BRANCH_ORDER) {
+		console.log(`[clone] Trying branch "${branch}"...`);
+		try {
+			await execa("git", ["clone", "-b", branch, url], {
+				cwd: dir,
+				stdin: "ignore",
+				stdout: "ignore",
+				stderr: "pipe",
+			});
+			console.log(`[clone] Cloned with branch "${branch}"`);
+			return;
+		} catch (error: unknown) {
+			lastError = error instanceof Error ? error : new Error(String(error));
+			if (
+				error &&
+				typeof error === "object" &&
+				"exitCode" in error &&
+				(error as { exitCode?: number }).exitCode === 128
+			) {
+				continue;
+			}
+			if (
+				error &&
+				typeof error === "object" &&
+				"stderr" in error &&
+				"exitCode" in error
+			) {
+				const execaError = error as { stderr?: string; exitCode?: number };
+				const stderrText = execaError.stderr?.trim() ?? "";
+				throw new Error(
+					`git clone failed: ${stderrText || `exit code ${execaError.exitCode ?? "unknown"}`}`,
+				);
+			}
+			throw error;
 		}
-		throw error;
 	}
+
+	const msg =
+		lastError instanceof Error ? lastError.message : "Failed to clone repository";
+	throw new Error(`git clone failed (no branch found): ${msg}`);
 }
 
 /**
- * Performs git pull in the repository directory for the given library.
- * Throws an error if git pull fails.
+ * Returns the first branch from BRANCH_ORDER that exists on origin (after fetch).
+ * Falls back to current branch if none of the preferred branches exist.
+ */
+async function getBranchToPull(projectPath: string): Promise<string> {
+	const execaModule = await import("execa");
+	const execa = execaModule.default;
+	let currentBranch = "main";
+	try {
+		const result = await execa("git", ["branch", "--show-current"], {
+			cwd: projectPath,
+			stdin: "ignore",
+			stdout: "pipe",
+			stderr: "pipe",
+		});
+		if (result.stdout?.trim()) {
+			currentBranch = result.stdout.trim();
+		}
+	} catch {
+		// use default
+	}
+
+	for (const branch of BRANCH_ORDER) {
+		try {
+			await execa("git", ["rev-parse", "--verify", `origin/${branch}`], {
+				cwd: projectPath,
+				stdin: "ignore",
+				stdout: "pipe",
+				stderr: "pipe",
+			});
+			return branch;
+		} catch {
+			continue;
+		}
+	}
+	return currentBranch;
+}
+
+/**
+ * Performs git fetch then pull in the repository directory for the given library.
+ * Uses the same branch order as clone (sprint, master, main): picks the first branch
+ * that exists on origin, checks it out if needed, then pulls. Logs which branch is used.
  */
 export async function pullRepository(
 	libraryName: string,
@@ -105,6 +166,61 @@ export async function pullRepository(
 	const execaModule = await import("execa");
 	const execa = execaModule.default;
 	const projectPath = getProjectPath(libraryName, sourcesDir);
+
+	try {
+		await execa("git", ["fetch", "origin"], {
+			cwd: projectPath,
+			stdin: "ignore",
+			stdout: "ignore",
+			stderr: "pipe",
+		});
+	} catch {
+		// Continue to pull even if fetch fails (e.g. offline)
+	}
+
+	const branchToUse = await getBranchToPull(projectPath);
+
+	let currentBranch = "?";
+	try {
+		const result = await execa("git", ["branch", "--show-current"], {
+			cwd: projectPath,
+			stdin: "ignore",
+			stdout: "pipe",
+			stderr: "pipe",
+		});
+		if (result.stdout?.trim()) {
+			currentBranch = result.stdout.trim();
+		}
+	} catch {
+		// keep "?"
+	}
+
+	if (currentBranch !== branchToUse) {
+		try {
+			await execa("git", ["checkout", branchToUse], {
+				cwd: projectPath,
+				stdin: "ignore",
+				stdout: "ignore",
+				stderr: "pipe",
+			});
+		} catch (error: unknown) {
+			if (
+				error &&
+				typeof error === "object" &&
+				"stderr" in error &&
+				"exitCode" in error
+			) {
+				const execaError = error as { stderr?: string; exitCode?: number };
+				const stderrText = execaError.stderr?.trim() ?? "";
+				throw new Error(
+					`git checkout ${branchToUse} failed: ${stderrText || `exit code ${execaError.exitCode ?? "unknown"}`}`,
+				);
+			}
+			throw error;
+		}
+	}
+
+	console.log(`[pull] ${libraryName}: using branch "${branchToUse}"`);
 
 	try {
 		await execa("git", ["pull"], {

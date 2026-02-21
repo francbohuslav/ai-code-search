@@ -128,13 +128,13 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
 		if (needClone) {
 			const codebaseMap = await getCodebaseMap();
-			const url = codebaseMap.get(library);
-			if (!url) {
+			const entry = codebaseMap.get(library);
+			if (!entry) {
 				throw new Error(
 					`Library "${library}" not found. Use list_libraries to see available libraries.`,
 				);
 			}
-			cloneUrl = url;
+			cloneUrl = entry.url;
 		}
 
 		// Clone if needed
@@ -307,12 +307,12 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 				...local.map((name) => ({
 					name,
 					downloaded: true,
-					url: codebaseMap.get(name),
+					url: codebaseMap.get(name)?.url,
 				})),
 				...remoteOnly.map((name) => ({
 					name,
 					downloaded: false,
-					url: codebaseMap.get(name),
+					url: codebaseMap.get(name)?.url,
 				})),
 			].sort((a, b) => a.name.localeCompare(b.name));
 

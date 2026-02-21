@@ -47,12 +47,12 @@ export function getSourcesDir(override?: string): string {
 	return fromEnv;
 }
 
-export type AgentType = "cursor" | "gemini";
+export type AgentType = "cursor" | "gemini" | "claude";
 
-const ALLOWED_AGENT_TYPES: AgentType[] = ["cursor", "gemini"];
+const ALLOWED_AGENT_TYPES: AgentType[] = ["cursor", "gemini", "claude"];
 
 /**
- * Returns the agent type. Valid values: "cursor" | "gemini".
+ * Returns the agent type. Valid values: "cursor" | "gemini" | "claude".
  * Defaults to "cursor" when AGENT_TYPE is not set.
  * Throws when AGENT_TYPE is set to an invalid value.
  */
@@ -72,12 +72,21 @@ export function getAgentType(): AgentType {
 
 /**
  * Returns the command used to run the agent (cursor-agent or Gemini CLI).
- * Defaults to "cursor-agent" when AGENT_TYPE is cursor, "gemini" when AGENT_TYPE is gemini.
+ * Not used when AGENT_TYPE is "claude" (Claude Agent SDK runs in-process).
  */
 export function getAgentCommand(): string {
 	const fromEnv = readEnv("AGENT_CMD");
 	if (fromEnv) return fromEnv;
 	return getAgentType() === "gemini" ? "gemini" : "cursor-agent";
+}
+
+/**
+ * Returns the model to use for the agent (optional).
+ * Used by all backends when set: cursor-agent (--model), Gemini CLI (-m), Claude SDK (model option).
+ * When not set, each backend uses its default (e.g. "auto" for cursor, SDK default for Claude).
+ */
+export function getAgentModel(): string | undefined {
+	return readEnv("AGENT_MODEL");
 }
 
 /**

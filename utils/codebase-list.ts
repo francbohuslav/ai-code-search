@@ -1,7 +1,12 @@
 import { promises as fs } from "node:fs";
 import { getCodebaseListPath } from "../config";
 
-let cachedMap: Map<string, string> | null = null;
+export interface CodebaseEntry {
+	url: string;
+	name: string;
+}
+
+let cachedMap: Map<string, CodebaseEntry> | null = null;
 
 /**
  * Returns the last path segment of a URL (e.g. repo/codebase name).
@@ -15,11 +20,11 @@ function lastSegment(url: string): string {
 }
 
 /**
- * Loads codebase-list.json and returns a map: last URL segment -> full URL.
+ * Loads codebase-list.json and returns a map: name -> CodebaseEntry.
+ * Supports both simple string URLs and enhanced { url, name, description } objects.
  * Cached after first load.
- * The file path is read from CODEBASE_LIST_PATH environment variable.
  */
-export async function getCodebaseMap(): Promise<Map<string, string>> {
+export async function getCodebaseMap(): Promise<Map<string, CodebaseEntry>> {
 	if (cachedMap) {
 		return cachedMap;
 	}
@@ -34,10 +39,10 @@ export async function getCodebaseMap(): Promise<Map<string, string>> {
 		cachedMap = new Map();
 		return cachedMap;
 	}
-	let urls: unknown;
+	let entries: unknown;
 	try {
 		const content = await fs.readFile(filePath, "utf8");
-		urls = JSON.parse(content);
+		entries = JSON.parse(content);
 	} catch (err) {
 		console.error(
 			`[codebase-list] Failed to read codebase list from ${filePath}:`,
@@ -46,18 +51,28 @@ export async function getCodebaseMap(): Promise<Map<string, string>> {
 		cachedMap = new Map();
 		return cachedMap;
 	}
-	if (!Array.isArray(urls)) {
+	if (!Array.isArray(entries)) {
 		console.error(
-			`[codebase-list] Invalid format: expected array, got ${typeof urls}`,
+			`[codebase-list] Invalid format: expected array, got ${typeof entries}`,
 		);
 		cachedMap = new Map();
 		return cachedMap;
 	}
-	const map = new Map<string, string>();
-	for (const url of urls) {
-		if (typeof url === "string" && url.trim()) {
-			const key = lastSegment(url);
-			map.set(key, url);
+	const map = new Map<string, CodebaseEntry>();
+	for (const entry of entries) {
+		if (typeof entry === "string" && entry.trim()) {
+			const key = lastSegment(entry);
+			map.set(key, { url: entry, name: key });
+		} else if (
+			entry &&
+			typeof entry === "object" &&
+			typeof (entry as Record<string, unknown>).url === "string"
+		) {
+			const obj = entry as Record<string, unknown>;
+			const url = obj.url as string;
+			const name =
+				typeof obj.name === "string" ? obj.name : lastSegment(url);
+			map.set(name, { url, name });
 		}
 	}
 	cachedMap = map;

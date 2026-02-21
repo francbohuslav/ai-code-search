@@ -1,9 +1,16 @@
 import { spawn } from "node:child_process";
 import type { ChildProcess } from "node:child_process";
 import { Readable } from "node:stream";
-import { getAgentCommand } from "../config";
+import { getAgentCommand, getAgentModel } from "../config";
 
-const GEMINI_ARGS = ["-o", "stream-json"];
+function getGeminiArgs(): string[] {
+	const args = ["-o", "stream-json"];
+	const model = getAgentModel();
+	if (model) {
+		args.push("-m", model);
+	}
+	return args;
+}
 
 function basename(path: string): string {
 	const normalized = path.replace(/\\/g, "/");
@@ -78,7 +85,7 @@ export function runGeminiStream(
 	const cmd = getAgentCommand();
 	const fullPrompt = `${prompt.trim()}. Do not change any files! Only return results in chat!`;
 	const isWindows = process.platform === "win32";
-	const child = spawn(cmd, [...GEMINI_ARGS, fullPrompt], {
+	const child = spawn(cmd, [...getGeminiArgs(), fullPrompt], {
 		cwd: projectPath,
 		stdio: ["ignore", "pipe", "pipe"],
 		shell: isWindows,

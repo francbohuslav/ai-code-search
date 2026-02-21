@@ -1,19 +1,22 @@
 import { spawn } from "node:child_process";
 import type { ChildProcess } from "node:child_process";
 import type { Readable } from "node:stream";
-import { getAgentCommand } from "../config";
+import { getAgentCommand, getAgentModel } from "../config";
 
-const AGENT_ARGS = [
-	"-p",
-	"--mode",
-	"ask",
-	"--model",
-	"auto",
-	"--output-format",
-	"stream-json",
-   "--trust",
-	"agent",
-];
+function getCursorAgentArgs(): string[] {
+	const model = getAgentModel() ?? "auto";
+	return [
+		"-p",
+		"--mode",
+		"ask",
+		"--model",
+		model,
+		"--output-format",
+		"stream-json",
+		"--trust",
+		"agent",
+	];
+}
 
 /**
  * Runs cursor-agent in streaming mode (--output-format stream-json).
@@ -26,7 +29,7 @@ export function runCursorAgentStream(
 	const cmd = getAgentCommand();
 	const fullPrompt = `${prompt.trim()}. Do not change any files! Only return results in chat!`;
 	const isWindows = process.platform === "win32";
-	const child = spawn(cmd, [...AGENT_ARGS, fullPrompt], {
+	const child = spawn(cmd, [...getCursorAgentArgs(), fullPrompt], {
 		cwd: projectPath,
 		stdio: ["ignore", "pipe", "pipe"],
 		shell: isWindows,
@@ -68,7 +71,7 @@ export async function runCursorAgent(
 	const execa = execaModule.default;
 	const cmd = getAgentCommand();
 	const fullPrompt = `${prompt.trim()} Do not change any files! Only return results in chat!`;
-	const argsNoStream = AGENT_ARGS.filter(
+	const argsNoStream = getCursorAgentArgs().filter(
 		(a) => a !== "--output-format" && a !== "stream-json",
 	);
 

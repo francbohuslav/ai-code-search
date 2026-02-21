@@ -53,15 +53,15 @@ apiRouter.post("/search", async (req, res) => {
 	let cloneUrl: string | null = null;
 	if (needClone) {
 		const codebaseMap = await getCodebaseMap();
-		const url = codebaseMap.get(project);
-		if (!url) {
+		const entry = codebaseMap.get(project);
+		if (!entry) {
 			res.status(400).json({
 				error:
 					"Project not found. Select a project from the list or ensure it exists in SOURCES_DIR.",
 			});
 			return;
 		}
-		cloneUrl = url;
+		cloneUrl = entry.url;
 	}
 
 	try {
