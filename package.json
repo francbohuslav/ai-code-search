@@ -6,10 +6,10 @@
 		"ai-code-search": "./cli.js"
 	},
 	"scripts": {
-		"dev": "tsx watch server.ts",
+		"dev": "node ./node_modules/tsx/dist/cli.mjs watch server.ts",
 		"build": "tsc -p tsconfig.server.json",
 		"start": "node dist/server.js",
-		"mcp": "tsx mcp-server.ts",
+		"mcp": "node ./node_modules/tsx/dist/cli.mjs mcp-server.ts",
 		"lint": "biome lint .",
 		"lint:fix": "biome lint . --write",
 		"format": "biome format .",
@@ -21,7 +21,7 @@
 		"dotenv": "^16.4.5",
 		"execa": "^5.1.1",
 		"express": "^4.21.2",
-		"zod": "^3.23.8"
+		"zod": "^4.0.0"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "^1.9.0",
