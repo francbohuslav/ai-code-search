@@ -10,7 +10,7 @@ Backend is Node.js (TypeScript), frontend is React with Material UI.
 ## Requirements
 
 - [Node.js](https://nodejs.org/) and npm
-- **Agent:** [Cursor CLI](https://cursor.com/cli) **cursor-agent**, [Gemini CLI](https://geminicli.com/) **gemini**, or **Claude Agent SDK** (with `ANTHROPIC_API_KEY`). Set **AGENT_TYPE** to `cursor`, `gemini`, or `claude`. \
+- **Agent:** [Cursor CLI](https://cursor.com/cli) **cursor-agent**, [Gemini CLI](https://geminicli.com/) **gemini**, **Claude Agent SDK** (with `ANTHROPIC_API_KEY`), or **Claude Code CLI** (`claude`, works with a subscription). Set **AGENT_TYPE** to `cursor`, `gemini`, `claude`, or `claude-cli`. \
   Helpful commands (Windows PowerShell):
 
 - **SOURCES_DIR** – directory where cloned projects live (one subdirectory per project)
@@ -34,6 +34,16 @@ Use official installation guide from Gemini. If you struggle, use these commands
 ### Claude Agent SDK (AGENT_TYPE=claude)
 
 The backend includes `@anthropic-ai/claude-agent-sdk`. Set **ANTHROPIC_API_KEY** in your environment (e.g. in `.env`). No separate CLI install needed. If `npm install` fails due to peer dependency (zod), run `npm install --legacy-peer-deps`.
+
+### Claude Code CLI (AGENT_TYPE=claude-cli)
+
+Runs the Claude Code CLI (`claude -p`) as a process, like cursor-agent. It uses the CLI's own login, so a Claude subscription works and no **ANTHROPIC_API_KEY** is needed (if the key is set in the environment, the CLI uses it instead and bills the API).
+
+- `npm install -g @anthropic-ai/claude-code` (or the native installer from Anthropic)
+- `claude` – log in once interactively
+- `claude --version` - everything is OK if version is printed
+
+Only read-only tools (`Read`, `Grep`, `Glob`) are pre-approved. Optional **AGENT_CMD** overrides the command, **AGENT_MODEL** is passed as `--model`.
 
 ## 1. MCP server
 

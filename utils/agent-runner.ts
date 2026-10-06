@@ -4,6 +4,7 @@ import { getAgentCommand, getAgentType } from "../config";
 import { runCursorAgentStream } from "./cursor-agent";
 import { runGeminiStream } from "./gemini-agent";
 import { runClaudeAgentStream } from "./claude-agent";
+import { runClaudeCliStream } from "./claude-cli-agent";
 
 /**
  * Runs the configured agent (cursor, gemini, or claude) in streaming mode.
@@ -23,6 +24,8 @@ export function runAgentStream(
 			return runGeminiStream(projectPath, prompt);
 		case "claude":
 			return runClaudeAgentStream(projectPath, prompt);
+		case "claude-cli":
+			return runClaudeCliStream(projectPath, prompt);
 		default: {
 			const _exhaust: never = agentType;
 			throw new Error(`Unsupported agent type: ${String(_exhaust)}`);
